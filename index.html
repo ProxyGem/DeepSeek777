@@ -760,6 +760,21 @@
             font-weight: 700;
         }
 
+        .key-status {
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 8px;
+        }
+        .key-status.active {
+            background: rgba(77, 235, 107, 0.2);
+            color: #4deb6b;
+        }
+        .key-status.inactive {
+            background: rgba(255, 85, 85, 0.2);
+            color: #ff5555;
+        }
+
         @media (max-width: 768px) {
             .sidebar {
                 width: 60px;
@@ -847,6 +862,7 @@
             <div class="user-info">
                 <div class="user-avatar">👤</div>
                 <div class="user-name">Пользователь</div>
+                <span id="keyStatus" class="key-status inactive">🔑 нет ключа</span>
             </div>
             <div style="display: flex; gap: 8px;">
                 <i class="fa-solid fa-key" onclick="saveApiKey()" title="Сохранить API ключ" style="cursor:pointer; color: var(--text-secondary);"></i>
@@ -965,7 +981,6 @@
         let attachedImage = null;
 
         // ===== CORS PROXY CONFIGURATION =====
-        // Используем CORS прокси для обхода ограничений GitHub Pages
         const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
         const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
@@ -1050,6 +1065,18 @@
             return localStorage.getItem('gem_api_key') || '';
         }
 
+        function updateKeyStatus() {
+            const statusEl = document.getElementById('keyStatus');
+            const key = getApiKey();
+            if (key) {
+                statusEl.textContent = '🔑 ключ есть';
+                statusEl.className = 'key-status active';
+            } else {
+                statusEl.textContent = '🔑 нет ключа';
+                statusEl.className = 'key-status inactive';
+            }
+        }
+
         function getModelId() {
             if (document.getElementById('btnFemboy').classList.contains('active')) return 'femboy';
             if (document.getElementById('btnMecha').classList.contains('active')) return 'mecha';
@@ -1086,6 +1113,7 @@
             }
             renderChatHistory();
             updateImageGenButtons();
+            updateKeyStatus();
             console.log('DeepSeek777 AI Assistant loaded. Selected model:', selectedModel);
             console.log('Using CORS proxy:', CORS_PROXY);
         };
@@ -1534,7 +1562,8 @@
             try {
                 const apiKey = getApiKey();
                 if (!apiKey) {
-                    throw new Error('API key not found. Please set your OpenRouter API key.');
+                    updateKeyStatus();
+                    throw new Error('❌ API ключ не найден! Нажмите на иконку 🔑 в боковой панели и введите ваш OpenRouter API ключ.');
                 }
 
                 const systemPrompt = getSystemPrompt();
@@ -1562,7 +1591,6 @@
                 const modelToUse = getModelForAPI();
                 console.log('Sending to API with model:', modelToUse);
 
-                // Используем CORS прокси с отключенным стримингом
                 const proxyUrl = CORS_PROXY + encodeURIComponent(API_URL);
 
                 const response = await fetch(proxyUrl, {
@@ -1576,7 +1604,7 @@
                     body: JSON.stringify({
                         model: modelToUse,
                         messages: apiMessages,
-                        stream: false, // Отключаем стриминг для CORS прокси
+                        stream: false,
                         max_tokens: 4096
                     })
                 });
@@ -1584,7 +1612,15 @@
                 if (!response.ok) {
                     const errorData = await response.text();
                     console.error('API Error:', errorData);
-                    throw new Error(`API Error (${response.status}): ${errorData.substring(0, 200)}`);
+                    let errorMsg = `API Error (${response.status})`;
+                    if (response.status === 401) {
+                        errorMsg = '❌ Неверный API ключ! Проверьте ключ и попробуйте снова.';
+                    } else if (response.status === 429) {
+                        errorMsg = '❌ Слишком много запросов! Подождите немного.';
+                    } else {
+                        errorMsg += ': ' + errorData.substring(0, 200);
+                    }
+                    throw new Error(errorMsg);
                 }
 
                 removeTypingIndicator();
@@ -1599,13 +1635,15 @@
                     console.log('Message saved, length:', fullText.length);
                 } else {
                     console.warn('Empty response from API');
+                    const errorEl = appendMessageToDOM('assistant', '');
+                    errorEl.innerHTML = `<div class="error-message">⚠️ Пустой ответ от API. Попробуйте ещё раз.</div>`;
                 }
 
             } catch (err) {
                 console.error('Error:', err);
                 removeTypingIndicator();
                 const errorEl = appendMessageToDOM('assistant', '');
-                errorEl.innerHTML = `<div class="error-message">❌ Ошибка: ${escapeHtml(err.message)}</div>`;
+                errorEl.innerHTML = `<div class="error-message">❌ ${escapeHtml(err.message)}</div>`;
             } finally {
                 isProcessing = false;
                 clearInputs();
@@ -1614,10 +1652,11 @@
 
         // ===== API KEY FUNCTIONS =====
         function saveApiKey() {
-            const key = prompt('Введите ваш OpenRouter API ключ:');
+            const key = prompt('Введите ваш OpenRouter API ключ:\n\nПолучить ключ можно на https://openrouter.ai/keys');
             if (key && key.trim()) {
                 localStorage.setItem('gem_api_key', key.trim());
-                alert('✅ API Key сохранён!');
+                updateKeyStatus();
+                alert('✅ API Key сохранён! Теперь можно отправлять сообщения.');
             } else if (key !== null) {
                 alert('❌ Введите корректный API ключ.');
             }
@@ -1708,6 +1747,7 @@
         console.log('🌸 Femboy36k (Vova36k) добавлен! ❤️');
         console.log('📌 Image Gen доступен только для GPT Кент');
         console.log('🌐 CORS Proxy enabled (streaming disabled for compatibility)');
+        console.log('🔑 Нажмите на иконку ключа в боковой панели, чтобы добавить API ключ');
     </script>
 </body>
 </html>
