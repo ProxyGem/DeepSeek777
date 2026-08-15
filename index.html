@@ -848,9 +848,6 @@
                 <div class="user-avatar">👤</div>
                 <div class="user-name">Пользователь</div>
             </div>
-            <div style="display: flex; gap: 8px;">
-                <i class="fa-solid fa-key" onclick="saveApiKey()" title="Сохранить API ключ" style="cursor:pointer; color: var(--text-secondary);"></i>
-            </div>
         </div>
     </div>
 
@@ -1648,17 +1645,6 @@
             } finally {
                 isProcessing = false;
                 clearInputs();
-            }
-        }
-
-        // ===== API KEY FUNCTIONS =====
-        function saveApiKey() {
-            const key = prompt('Введите ваш OpenRouter API ключ:');
-            if (key && key.trim()) {
-                localStorage.setItem('gem_api_key', key.trim());
-                alert('✅ API Key сохранён!');
-            } else if (key !== null) {
-                alert('❌ Введите корректный API ключ.');
             }
         }
 
