@@ -966,7 +966,7 @@
 
         // ===== CORS PROXY CONFIGURATION =====
         // Используем CORS прокси для обхода ограничений GitHub Pages
-        const CORS_PROXY = 'https://corsproxy.io/?';
+        const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
         const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
         // Models
@@ -1562,7 +1562,7 @@
                 const modelToUse = getModelForAPI();
                 console.log('Sending to API with model:', modelToUse);
 
-                // Используем CORS прокси для обхода ограничений
+                // Используем CORS прокси с отключенным стримингом
                 const proxyUrl = CORS_PROXY + encodeURIComponent(API_URL);
 
                 const response = await fetch(proxyUrl, {
@@ -1576,7 +1576,7 @@
                     body: JSON.stringify({
                         model: modelToUse,
                         messages: apiMessages,
-                        stream: true,
+                        stream: false, // Отключаем стриминг для CORS прокси
                         max_tokens: 4096
                     })
                 });
@@ -1589,59 +1589,11 @@
 
                 removeTypingIndicator();
 
-                const assistantEl = document.createElement('div');
-                assistantEl.className = 'message-row msg-assistant';
-                if (isFemboy) assistantEl.classList.add('femboy-msg');
-                if (isMecha) assistantEl.classList.add('mecha-msg');
+                const data = await response.json();
+                const fullText = data.choices?.[0]?.message?.content || '';
 
-                const avatar = document.createElement('div');
-                avatar.className = 'message-avatar';
-                if (isFemboy) avatar.innerText = '🌸';
-                else if (isMecha) avatar.innerText = '💀';
-                else avatar.innerText = '🤖';
-
-                const body = document.createElement('div');
-                body.className = 'message-body';
-
-                assistantEl.appendChild(avatar);
-                assistantEl.appendChild(body);
-                document.getElementById('messagesContainer').appendChild(assistantEl);
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let fullText = '';
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    const chunk = decoder.decode(value, { stream: true });
-                    const lines = chunk.split('\n');
-
-                    for (const line of lines) {
-                        if (line.startsWith('data: ')) {
-                            const jsonStr = line.slice(6).trim();
-                            if (jsonStr === '[DONE]') continue;
-
-                            try {
-                                const parsed = JSON.parse(jsonStr);
-                                const token = parsed.choices?.[0]?.delta?.content || '';
-                                fullText += token;
-                                try {
-                                    body.innerHTML = marked.parse(fullText);
-                                } catch (e) {
-                                    body.textContent = fullText;
-                                }
-                                const container = document.getElementById('messagesContainer');
-                                container.scrollTop = container.scrollHeight;
-                            } catch (e) {
-                                // skip
-                            }
-                        }
-                    }
-                }
-
-                if (fullText.trim()) {
+                if (fullText) {
+                    const assistantEl = appendMessageToDOM('assistant', fullText);
                     currentChat.messages.push({ role: 'assistant', content: fullText });
                     localStorage.setItem('gem_chats', JSON.stringify(chats));
                     console.log('Message saved, length:', fullText.length);
@@ -1755,7 +1707,7 @@
         console.log('🤖 Misha25k (Mecha) добавлен!');
         console.log('🌸 Femboy36k (Vova36k) добавлен! ❤️');
         console.log('📌 Image Gen доступен только для GPT Кент');
-        console.log('🌐 CORS Proxy enabled for GitHub Pages compatibility');
+        console.log('🌐 CORS Proxy enabled (streaming disabled for compatibility)');
     </script>
 </body>
 </html>
